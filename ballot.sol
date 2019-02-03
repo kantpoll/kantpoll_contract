@@ -24,12 +24,12 @@ contract Campaign {
         bytes32 pubkey; //The public keys that the ring signatures are composed of
         uint prefix; //02 or 03
         uint group;
-        bool hasGroup; //If true, that person has already entered a group
+        bool hasGroup; //If true, this person has already entered a group
     }
 
     //A group with N voters
     struct Group {
-        address cPerson; //Who can vote on behalf of the other voters
+        address cPerson; //Who send votes on behalf of voters
         uint category; //For statistics
         uint size; //Number of voters
     }
@@ -42,7 +42,7 @@ contract Campaign {
 
     //This struct represents a vote containing a ring signature
     struct Vote {
-        bytes32 fNumber; //First number of the URS
+        bytes32 fNumber; //A hash of the URS
         uint candidate; //The chosen candidate
     }
 
@@ -70,7 +70,7 @@ contract Campaign {
     //Groups that are composed of voters
     Group[] public groups;
 
-    //All possible group categories for groups
+    //All possible group categories
     bytes32[] public groupCategories;
 
     //Each ballot represents a round
@@ -79,7 +79,7 @@ contract Campaign {
     //Voters, who must also be registered in groups
     mapping(address => Voter) voters;
 
-    //User's hashcodes - should be unique
+    //Users' hashcodes - should be unique
     mapping(bytes32 => bool) hashcodes;
 
     //How many rounds there will be
@@ -106,10 +106,10 @@ contract Campaign {
     //Group chairpersons' tor addresses
     mapping(address => mapping(uint => bytes32)) tors;
 
-    //Group mappings
+    //Group + voter mapping
     mapping(uint => mapping(uint => address)) gVoters;
 
-    //Ballot mapping
+    //Ballot + candidate mapping
     mapping(uint => mapping(uint => Candidate)) bCandidates;
     uint[255] bCandidatesCounter;
 
@@ -146,7 +146,7 @@ contract Campaign {
         preVotes[ballot][group][fnumber].candidate = candidate;
     }
 
-    //Voters can check if their prevotes were added correctly
+    //Voters can check if their pre-votes were added correctly
     function getPreVote(uint ballot, uint group, bytes32 fnumber) public view returns (bytes20 voter, uint candidate){
         voter = preVotes[ballot][group][fnumber].voter;
         candidate = preVotes[ballot][group][fnumber].candidate;
@@ -158,7 +158,7 @@ contract Campaign {
         canCancel = b;
     }
 
-    //It defines what happens when users clik in candidates photos
+    //It defines what happens when users click in candidates photos
     function defineDisableCandidateLink(bool b) public {
         require(msg.sender == chairperson);
         disableCandidateLink = b;
@@ -206,7 +206,7 @@ contract Campaign {
         ballots[ballot].closed = true;
     }
 
-    //The ballot must be smaller than the maximum limit
+    //The ballot index must be smaller than the maximum limit
     function defineCurrentBallot(uint ballot) public {
         require(msg.sender == chairperson);
         require(ballot < rounds);
@@ -226,7 +226,7 @@ contract Campaign {
         stoppingAccessionToGroups = str;
     }
 
-    //It sets the group chairperson's tor addresses and pubkeys
+    //It sets the group chairperson's tor address and pubkey
     function defineTor(address person, uint pos, bytes32 value) public {
         require(msg.sender == person);
         tors[person][pos] = value;
@@ -285,7 +285,7 @@ contract Campaign {
         groupCategories.push(category);
     }
 
-    //Give the voter the right to vote on this ballot.
+    //Give the voter the right to vote on this campaign.
     function giveRightToVote(address toVoter, uint prefix, bytes32 pubkey, bytes32 hashcode) public {
         require(msg.sender == chairperson);
         voters[toVoter].pubkey = pubkey;
@@ -299,14 +299,14 @@ contract Campaign {
         voters[toVoter].prefix = 0;
     }
 
-    //Add the voter to a group in order to he/she can vote
+    //Add the voter to a group so that he/she can vote
     function addVoterToGroup(address voter, uint grp, uint position) public {
         require(msg.sender == chairperson);
         require(!voters[voter].hasGroup);
         require(groups[grp].size < mgz);
         require(position < mgz);
         require(gVoters[grp][position] == address(0));
-        //The chairperson should give right to vote to this voter first
+        //The chairperson should give the right to vote to this voter first
         require(voters[voter].prefix > 0);
 
         //Making the voter part of a group
@@ -316,7 +316,7 @@ contract Campaign {
         gVoters[grp][position] = voter;
     }
 
-    //Check whether a hashcode was inserted
+    //Check if a hashcode was inserted
     function checkHashcode(bytes32 hashcode) public view returns (bool){
         return hashcodes[hashcode];
     }
@@ -360,7 +360,7 @@ contract Campaign {
         require(preVotes[ballot][grp][first_number].candidate == the_candidate);
         require(preVotes[ballot][grp][first_number].voter != bytes20(0));
 
-        //Verify if this "first number" has already been entered in the array
+        //Verify if this fNumber(hash) has already been entered in the array
         for (uint i = 0; i < mgz; i++) {
             if (bgVotes[ballot][grp][i].fNumber == first_number) {
                 return;
@@ -387,12 +387,12 @@ contract Campaign {
         return (numbers, candidates);
     }
 
-    //Check whether the the votes were committed (for that ballot, group and position), or not
+    //Check if the the votes were committed (for that ballot, group and position)
     function committed(uint ballot, uint grp, uint position) public view returns (bool){
         return bgpCommitted[ballot][grp][position];
     }
 
-    //Check whether the statistics were committed (for that ballot, group and position), or not
+    //Check if the statistics were committed (for that ballot, group and position)
     function committedStatistics(uint ballot, uint grp, uint position) public view returns (bool){
         return bgpCommittedStatistics[ballot][grp][position];
     }
@@ -414,7 +414,7 @@ contract Campaign {
         }
     }
 
-    //Committing the statistics regarding the votation
+    //Committing the statistics
     function commitVotationStatisticsPerPosition(uint ballot, uint grp, uint position) public {
         require(ballots[ballot].closed);
         //The ballot must be closed
